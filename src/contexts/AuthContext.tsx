@@ -74,10 +74,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (session?.user) {
           console.log("User found in session, fetching profile...");
-          // Fetch profile and wait for it to complete
-          const profile = await fetchProfile(session.user.id);
-          if (mounted && profile) {
-            console.log("Profile loaded successfully during initialization");
+          // Fetch profile with timeout protection
+          try {
+            const profile = await fetchProfile(session.user.id);
+            if (mounted && profile) {
+              console.log("Profile loaded successfully during initialization");
+            }
+          } catch (profileError) {
+            console.error(
+              "Profile fetch failed during initialization:",
+              profileError
+            );
           }
         }
 
@@ -97,7 +104,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    initializeAuth();
+    // Add a fallback timeout to ensure loading is always resolved
+    const fallbackTimeout = setTimeout(() => {
+      if (mounted) {
+        console.log(
+          "Auth initialization fallback timeout - setting loading to false"
+        );
+        setLoading(false);
+      }
+    }, 10000); // 10 second fallback
+
+    initializeAuth().finally(() => {
+      clearTimeout(fallbackTimeout);
+    });
 
     // Listen for auth changes
     const {
@@ -112,10 +131,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (session?.user) {
         console.log("User authenticated, fetching profile...");
-        // Fetch profile and wait for it to complete
-        const profile = await fetchProfile(session.user.id);
-        if (mounted && profile) {
-          console.log("Profile loaded successfully during auth state change");
+        // Fetch profile with timeout protection
+        try {
+          const profile = await fetchProfile(session.user.id);
+          if (mounted && profile) {
+            console.log("Profile loaded successfully during auth state change");
+          }
+        } catch (profileError) {
+          console.error(
+            "Profile fetch failed during auth state change:",
+            profileError
+          );
         }
       } else {
         setProfile(null);
@@ -130,6 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       mounted = false;
+      clearTimeout(fallbackTimeout);
       subscription.unsubscribe();
     };
   }, []);
@@ -138,12 +165,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log(`Fetching profile for user: ${userId}`);
 
-      // Simple profile fetch without complex timeout
-      const { data, error } = await supabase
+      // Add a timeout to prevent hanging
+      const profilePromise = supabase
         .from("profiles")
         .select("*")
         .eq("id", userId)
         .maybeSingle();
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Profile fetch timeout after 5 seconds")),
+          5000
+        )
+      );
+
+      const { data, error } = (await Promise.race([
+        profilePromise,
+        timeoutPromise,
+      ])) as {
+        data: Profile | null;
+        error: {
+          code: string;
+          message: string;
+          details?: string;
+          hint?: string;
+        } | null;
+      };
 
       if (error && error.code !== "PGRST116") {
         console.error("Error fetching profile:", error);
