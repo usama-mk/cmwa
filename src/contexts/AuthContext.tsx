@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useRef,
+} from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 
@@ -44,6 +50,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileFetching, setProfileFetching] = useState(false);
+  const fetchedUserIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let mounted = true;
@@ -131,20 +139,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (session?.user) {
         console.log("User authenticated, fetching profile...");
-        // Fetch profile with timeout protection
-        try {
-          const profile = await fetchProfile(session.user.id);
-          if (mounted && profile) {
-            console.log("Profile loaded successfully during auth state change");
+        // Only fetch profile if we haven't already fetched for this user
+        if (!fetchedUserIds.current.has(session.user.id)) {
+          // Fetch profile with timeout protection
+          try {
+            const profile = await fetchProfile(session.user.id);
+            if (mounted && profile) {
+              console.log(
+                "Profile loaded successfully during auth state change"
+              );
+            }
+          } catch (profileError) {
+            console.error(
+              "Profile fetch failed during auth state change:",
+              profileError
+            );
           }
-        } catch (profileError) {
-          console.error(
-            "Profile fetch failed during auth state change:",
-            profileError
-          );
+        } else {
+          console.log("Skipping profile fetch - already fetched for this user");
         }
       } else {
         setProfile(null);
+        // Clear the fetched user IDs when user logs out
+        fetchedUserIds.current.clear();
       }
 
       // Set loading to false after profile fetch completes
@@ -162,6 +179,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchProfile = async (userId: string): Promise<Profile | null> => {
+    // Prevent multiple simultaneous profile fetches
+    if (profileFetching) {
+      console.log("Profile fetch already in progress, skipping...");
+      return null;
+    }
+
+    // Mark this user as fetched to prevent infinite loops
+    fetchedUserIds.current.add(userId);
+    setProfileFetching(true);
+
     try {
       console.log(`Fetching profile for user: ${userId}`);
 
@@ -214,6 +241,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Profile fetch failed, setting profile to null");
       setProfile(null);
       return null;
+    } finally {
+      setProfileFetching(false);
     }
   };
 

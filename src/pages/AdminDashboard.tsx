@@ -80,7 +80,7 @@ export function AdminDashboard() {
       console.log("Profile found, fetching fresh data...");
       fetchClientsAndProjects();
     }
-  }, [profile]);
+  }, [profile?.id]);
 
   // Reset submission state on component mount and when profile changes
   useEffect(() => {
