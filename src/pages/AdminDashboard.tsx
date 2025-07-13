@@ -184,40 +184,42 @@ export function AdminDashboard() {
 
     try {
       console.log("Creating project in database...");
-      const { data, error } = await supabase
-        .from("projects")
-        .insert({
-          client_id: newProject.clientId,
-          name: newProject.name.trim(),
-          description: newProject.description.trim() || null,
-          status: newProject.status,
-          completion_percentage: newProject.completion_percentage,
-          notes: newProject.notes.trim() || null,
-        })
-        .select()
-        .single();
+      console.log("Project data to insert:", {
+        client_id: newProject.clientId,
+        name: newProject.name.trim(),
+        description: newProject.description.trim() || null,
+        status: newProject.status,
+        completion_percentage: newProject.completion_percentage,
+        notes: newProject.notes.trim() || null,
+      });
 
-      if (error) {
-        console.error("Database insert error:", error);
-        throw new Error(`Database error: ${error.message}`);
+      // Try insert without select first (simpler, less likely to cause RLS issues)
+      const { error: insertError } = await supabase.from("projects").insert({
+        client_id: newProject.clientId,
+        name: newProject.name.trim(),
+        description: newProject.description.trim() || null,
+        status: newProject.status,
+        completion_percentage: newProject.completion_percentage,
+        notes: newProject.notes.trim() || null,
+      });
+
+      if (insertError) {
+        console.error("Database insert error:", insertError);
+        console.error("Error details:", {
+          code: insertError.code,
+          message: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+        });
+        throw new Error(`Database error: ${insertError.message}`);
       }
 
-      if (!data) {
-        throw new Error("No data returned from project creation");
-      }
+      console.log("Project created successfully");
 
-      console.log("Project created successfully:", data);
+      // Refresh data to get the newly created project
+      await fetchClientsAndProjects();
 
-      // Update local state
-      setClients((prev) =>
-        prev.map((client) =>
-          client.id === newProject.clientId
-            ? { ...client, projects: [...client.projects, data] }
-            : client
-        )
-      );
-
-      console.log("Local state updated");
+      console.log("Data refreshed with new project");
 
       // Reset form and close modal
       setNewProject({
