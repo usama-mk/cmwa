@@ -58,7 +58,8 @@ export function AdminDashboard() {
   const [selectedClient, setSelectedClient] = useState<string>("all");
   const [showAddProject, setShowAddProject] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAddingProject, setIsAddingProject] = useState(false);
+  const [isUpdatingProject, setIsUpdatingProject] = useState(false);
   const [newProject, setNewProject] = useState({
     clientId: "",
     name: "",
@@ -83,7 +84,8 @@ export function AdminDashboard() {
 
   // Reset submission state on component mount and when profile changes
   useEffect(() => {
-    setIsSubmitting(false);
+    setIsAddingProject(false);
+    setIsUpdatingProject(false);
     setEditingProject(null);
     setShowAddProject(false);
   }, [profile?.id]);
@@ -92,7 +94,8 @@ export function AdminDashboard() {
   const refreshData = () => {
     console.log("Refreshing data...");
     setLoading(true);
-    setIsSubmitting(false); // Reset any stuck submission state
+    setIsAddingProject(false); // Reset any stuck submission state
+    setIsUpdatingProject(false); // Reset any stuck submission state
     setEditingProject(null); // Close any open modals
     setShowAddProject(false); // Close add project modal
     fetchClientsAndProjects();
@@ -150,8 +153,8 @@ export function AdminDashboard() {
 
   const addProject = async () => {
     // Prevent double submission
-    if (isSubmitting) {
-      console.log("Already submitting, ignoring request");
+    if (isAddingProject) {
+      console.log("Already adding project, ignoring request");
       return;
     }
 
@@ -176,8 +179,8 @@ export function AdminDashboard() {
       return;
     }
 
-    setIsSubmitting(true);
-    console.log("Set isSubmitting to true");
+    setIsAddingProject(true);
+    console.log("Set isAddingProject to true");
 
     try {
       console.log("Creating project in database...");
@@ -237,21 +240,21 @@ export function AdminDashboard() {
         }`
       );
     } finally {
-      // Ensure isSubmitting is always reset, even if there are errors
-      console.log("Setting isSubmitting to false");
-      setIsSubmitting(false);
+      // Ensure isAddingProject is always reset, even if there are errors
+      console.log("Setting isAddingProject to false");
+      setIsAddingProject(false);
 
       // Force a small delay to prevent rapid state changes
       setTimeout(() => {
-        setIsSubmitting(false);
+        setIsAddingProject(false);
       }, 100);
     }
   };
 
   const updateProject = async (project: Project) => {
     // Prevent double submission
-    if (isSubmitting) {
-      console.log("Already submitting, ignoring request");
+    if (isUpdatingProject) {
+      console.log("Already updating project, ignoring request");
       return;
     }
 
@@ -291,13 +294,24 @@ export function AdminDashboard() {
     }
 
     // Set submitting state
-    setIsSubmitting(true);
-    console.log("Set isSubmitting to true");
+    setIsUpdatingProject(true);
+    console.log("Set isUpdatingProject to true");
 
     try {
       // Simple database update without select
       console.log("Updating project in database...");
-      const { error } = await supabase
+      console.log("Project data to update:", {
+        id: project.id,
+        name: project.name.trim(),
+        description: project.description?.trim() || null,
+        status: project.status,
+        completion_percentage: project.completion_percentage,
+        notes: project.notes?.trim() || null,
+        drive_link: project.drive_link,
+      });
+
+      // Try update without select first (simpler, less likely to cause RLS issues)
+      const { error: updateError } = await supabase
         .from("projects")
         .update({
           name: project.name.trim(),
@@ -309,9 +323,15 @@ export function AdminDashboard() {
         })
         .eq("id", project.id);
 
-      if (error) {
-        console.error("Database update error:", error);
-        throw new Error(`Database error: ${error.message}`);
+      if (updateError) {
+        console.error("Database update error:", updateError);
+        console.error("Error details:", {
+          code: updateError.code,
+          message: updateError.message,
+          details: updateError.details,
+          hint: updateError.hint,
+        });
+        throw new Error(`Database error: ${updateError.message}`);
       }
 
       console.log("Database update successful");
@@ -415,13 +435,13 @@ export function AdminDashboard() {
         }`
       );
     } finally {
-      // Ensure isSubmitting is always reset, even if there are errors
-      console.log("Setting isSubmitting to false");
-      setIsSubmitting(false);
+      // Ensure isUpdatingProject is always reset, even if there are errors
+      console.log("Setting isUpdatingProject to false");
+      setIsUpdatingProject(false);
 
       // Force a small delay to prevent rapid state changes
       setTimeout(() => {
-        setIsSubmitting(false);
+        setIsUpdatingProject(false);
       }, 100);
     }
   };
@@ -1109,11 +1129,11 @@ export function AdminDashboard() {
               <button
                 onClick={addProject}
                 disabled={
-                  !newProject.name || !newProject.clientId || isSubmitting
+                  !newProject.name || !newProject.clientId || isAddingProject
                 }
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2 order-1 sm:order-2"
               >
-                {isSubmitting ? (
+                {isAddingProject ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                     <span>Adding...</span>
@@ -1267,10 +1287,10 @@ export function AdminDashboard() {
               </button>
               <button
                 onClick={() => updateProject(editingProject)}
-                disabled={!editingProject.name || isSubmitting}
+                disabled={!editingProject.name || isUpdatingProject}
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2 order-1 sm:order-2"
               >
-                {isSubmitting ? (
+                {isUpdatingProject ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                     <span>Saving...</span>
