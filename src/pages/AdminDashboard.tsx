@@ -81,10 +81,20 @@ export function AdminDashboard() {
     }
   }, [profile]);
 
+  // Reset submission state on component mount and when profile changes
+  useEffect(() => {
+    setIsSubmitting(false);
+    setEditingProject(null);
+    setShowAddProject(false);
+  }, [profile?.id]);
+
   // Add a refresh mechanism to clear any cached state
   const refreshData = () => {
     console.log("Refreshing data...");
     setLoading(true);
+    setIsSubmitting(false); // Reset any stuck submission state
+    setEditingProject(null); // Close any open modals
+    setShowAddProject(false); // Close add project modal
     fetchClientsAndProjects();
   };
 
@@ -93,7 +103,8 @@ export function AdminDashboard() {
       console.log("Fetching fresh data from database...");
 
       // Cache-busting timestamp for debugging
-      console.log("Fetch timestamp:", Date.now());
+      const timestamp = Date.now();
+      console.log("Fetch timestamp:", timestamp);
 
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
@@ -120,7 +131,7 @@ export function AdminDashboard() {
 
       console.log("Projects fetched:", projectsData?.length || 0);
 
-      const clientsWithProjects = profilesData.map((client) => ({
+      const clientsWithProjects = profilesData.map((client: Profile) => ({
         ...client,
         projects: projectsData.filter(
           (project) => project.client_id === client.id
@@ -226,8 +237,14 @@ export function AdminDashboard() {
         }`
       );
     } finally {
+      // Ensure isSubmitting is always reset, even if there are errors
       console.log("Setting isSubmitting to false");
       setIsSubmitting(false);
+
+      // Force a small delay to prevent rapid state changes
+      setTimeout(() => {
+        setIsSubmitting(false);
+      }, 100);
     }
   };
 
@@ -398,8 +415,14 @@ export function AdminDashboard() {
         }`
       );
     } finally {
+      // Ensure isSubmitting is always reset, even if there are errors
       console.log("Setting isSubmitting to false");
       setIsSubmitting(false);
+
+      // Force a small delay to prevent rapid state changes
+      setTimeout(() => {
+        setIsSubmitting(false);
+      }, 100);
     }
   };
 

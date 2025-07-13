@@ -67,12 +67,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           await fetchProfile(session.user.id);
         } else {
-          setLoading(false);
+          // Add a small delay to ensure smooth transitions
+          setTimeout(() => {
+            if (mounted) {
+              setLoading(false);
+            }
+          }, 200);
         }
       } catch (error) {
         console.error("Error initializing auth:", error);
         if (mounted) {
-          setLoading(false);
+          setTimeout(() => {
+            if (mounted) {
+              setLoading(false);
+            }
+          }, 200);
         }
       }
     };
@@ -95,7 +104,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null);
         // Add a small delay to ensure smooth transitions
-        setTimeout(() => setLoading(false), 200);
+        setTimeout(() => {
+          if (mounted) {
+            setLoading(false);
+          }
+        }, 200);
       }
     });
 
@@ -131,7 +144,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return null;
     } finally {
       // Only set loading to false if we're not in the middle of an auth state change
-      setTimeout(() => setLoading(false), 100);
+      setTimeout(() => {
+        setLoading(false);
+      }, 100);
     }
   };
 
