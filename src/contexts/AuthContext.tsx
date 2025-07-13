@@ -50,10 +50,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initializeAuth = async () => {
       try {
-        // Get initial session
+        console.log("Starting auth initialization...");
+
+        // Simple session fetch without complex timeout
         const {
           data: { session },
+          error,
         } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error("Session fetch error:", error);
+        }
+
         console.log(
           "Initial session check:",
           session ? "Found session" : "No session"
@@ -65,23 +73,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          await fetchProfile(session.user.id);
-        } else {
-          // Add a small delay to ensure smooth transitions
-          setTimeout(() => {
-            if (mounted) {
-              setLoading(false);
-            }
-          }, 200);
+          console.log("User found in session, fetching profile...");
+          // Fetch profile and wait for it to complete
+          const profile = await fetchProfile(session.user.id);
+          if (mounted && profile) {
+            console.log("Profile loaded successfully during initialization");
+          }
+        }
+
+        // Set loading to false after everything is complete
+        if (mounted) {
+          console.log(
+            "Auth initialization completed, setting loading to false"
+          );
+          setLoading(false);
         }
       } catch (error) {
         console.error("Error initializing auth:", error);
+
         if (mounted) {
-          setTimeout(() => {
-            if (mounted) {
-              setLoading(false);
-            }
-          }, 200);
+          setLoading(false);
         }
       }
     };
@@ -100,15 +111,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        await fetchProfile(session.user.id);
+        console.log("User authenticated, fetching profile...");
+        // Fetch profile and wait for it to complete
+        const profile = await fetchProfile(session.user.id);
+        if (mounted && profile) {
+          console.log("Profile loaded successfully during auth state change");
+        }
       } else {
         setProfile(null);
-        // Add a small delay to ensure smooth transitions
-        setTimeout(() => {
-          if (mounted) {
-            setLoading(false);
-          }
-        }, 200);
+      }
+
+      // Set loading to false after profile fetch completes
+      if (mounted) {
+        console.log("Auth state change completed, setting loading to false");
+        setLoading(false);
       }
     });
 
@@ -120,7 +136,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = async (userId: string): Promise<Profile | null> => {
     try {
-      console.log("Fetching profile for user:", userId);
+      console.log(`Fetching profile for user: ${userId}`);
+
+      // Simple profile fetch without complex timeout
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
@@ -129,6 +147,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error && error.code !== "PGRST116") {
         console.error("Error fetching profile:", error);
+        console.error("Error details:", {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        });
         throw error;
       }
 
@@ -140,13 +164,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return data;
     } catch (error) {
       console.error("Error fetching profile:", error);
+      console.error("Profile fetch failed, setting profile to null");
       setProfile(null);
       return null;
-    } finally {
-      // Only set loading to false if we're not in the middle of an auth state change
-      setTimeout(() => {
-        setLoading(false);
-      }, 100);
     }
   };
 
