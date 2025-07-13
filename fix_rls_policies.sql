@@ -1,32 +1,22 @@
-/*
-  # Fix infinite recursion in RLS policies
+-- Fix RLS Policies Script
+-- Run this in your Supabase SQL Editor to fix the infinite recursion issues
 
-  1. Problem
-    - RLS policies on profiles table cause infinite recursion
-    - Policies query the profiles table from within the policy itself
-    - This creates a loop when checking admin permissions
-    - Projects table updates hang because of this recursion
-    - Issue is intermittent - sometimes works, sometimes doesn't
-
-  2. Solution
-    - Remove all recursive policies that check admin role from profiles table
-    - Create simple, non-recursive policies
-    - Temporarily disable RLS on projects table to ensure reliability
-    - Use service role for admin operations to avoid recursion
-
-  3. Changes
-    - Drop all problematic recursive policies
-    - Create simple user policies for self-management
-    - Add service role policy for admin operations
-    - Disable RLS on projects table temporarily
-*/
-
--- Drop all problematic recursive policies
+-- Drop ALL existing policies first to avoid conflicts
 DROP POLICY IF EXISTS "Admins can read all profiles" ON profiles;
 DROP POLICY IF EXISTS "Admins can update all profiles" ON profiles;
 DROP POLICY IF EXISTS "Admins can delete profiles" ON profiles;
 DROP POLICY IF EXISTS "Admins can delete any profile" ON profiles;
 DROP POLICY IF EXISTS "Admins can insert any profile" ON profiles;
+DROP POLICY IF EXISTS "Users can read own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
+DROP POLICY IF EXISTS "Service role can manage all profiles" ON profiles;
+DROP POLICY IF EXISTS "Authenticated users can read all profiles" ON profiles;
+DROP POLICY IF EXISTS "Authenticated users can insert profiles" ON profiles;
+DROP POLICY IF EXISTS "Authenticated users can update profiles" ON profiles;
+DROP POLICY IF EXISTS "Authenticated users can delete profiles" ON profiles;
+DROP POLICY IF EXISTS "Service role full access" ON profiles;
+DROP POLICY IF EXISTS "Service role can manage all profiles" ON profiles;
 
 -- Create simple, non-recursive policies for users
 CREATE POLICY "Users can read own profile"
@@ -57,7 +47,6 @@ CREATE POLICY "Service role can manage all profiles"
   WITH CHECK (true);
 
 -- Allow authenticated users to read all profiles (for admin dashboard)
--- This is safe because we control access through application logic
 CREATE POLICY "Authenticated users can read all profiles"
   ON profiles
   FOR SELECT
@@ -87,7 +76,6 @@ CREATE POLICY "Authenticated users can delete profiles"
   USING (true);
 
 -- TEMPORARILY DISABLE RLS ON PROJECTS TABLE TO ENSURE RELIABILITY
--- This will be re-enabled with proper policies once the recursion issue is fully resolved
 ALTER TABLE projects DISABLE ROW LEVEL SECURITY;
 
 -- Drop any existing projects policies that might cause issues
@@ -99,4 +87,4 @@ DROP POLICY IF EXISTS "Users can read all projects" ON projects;
 DROP POLICY IF EXISTS "Users can insert projects" ON projects;
 DROP POLICY IF EXISTS "Users can update projects" ON projects;
 DROP POLICY IF EXISTS "Users can delete projects" ON projects;
-DROP POLICY IF EXISTS "Service role can manage all projects" ON projects;
+DROP POLICY IF EXISTS "Service role can manage all projects" ON projects; 

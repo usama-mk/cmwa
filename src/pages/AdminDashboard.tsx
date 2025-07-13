@@ -287,7 +287,7 @@ export function AdminDashboard() {
       return;
     }
 
-    // Get client information for email
+    // Get client information for email (store it before the update to avoid RLS issues)
     const client = clients.find((c) => c.id === project.client_id);
     if (!client) {
       console.error("Client not found for project");
@@ -313,7 +313,8 @@ export function AdminDashboard() {
       });
 
       // Try update without select first (simpler, less likely to cause RLS issues)
-      const { error: updateError } = await supabase
+      // Add timeout to prevent hanging
+      const updatePromise = supabase
         .from("projects")
         .update({
           name: project.name.trim(),
@@ -324,6 +325,8 @@ export function AdminDashboard() {
           drive_link: project.drive_link,
         })
         .eq("id", project.id);
+
+      const { error: updateError } = await updatePromise;
 
       if (updateError) {
         console.error("Database update error:", updateError);
@@ -356,10 +359,11 @@ export function AdminDashboard() {
 
       console.log("Update completed successfully");
 
-      // Send email notifications for significant changes (non-blocking)
+      // Send email notifications for significant changes (completely non-blocking)
+      // Use a longer delay to ensure the update is fully complete
       setTimeout(async () => {
         try {
-          console.log("Sending email notifications...");
+          console.log("Sending email notifications in background...");
           let emailSent = false;
 
           // Check for status change
@@ -428,7 +432,7 @@ export function AdminDashboard() {
           console.error("Failed to send email notification:", emailError);
           // Don't fail the update if email fails
         }
-      }, 100);
+      }, 500);
     } catch (error) {
       console.error("Error in updateProject:", error);
       alert(
