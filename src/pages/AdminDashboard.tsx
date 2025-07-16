@@ -408,10 +408,9 @@ export function AdminDashboard() {
           if (
             !emailSent &&
             project.notes &&
-            project.notes !== originalProject.notes &&
-            project.notes.length > 20
+            project.notes !== originalProject.notes
           ) {
-            console.log("Notes changed significantly, sending email...");
+            console.log("Notes changed, sending email...");
             await sendProjectUpdateEmail({
               clientEmail: client.email,
               clientName:
@@ -574,7 +573,8 @@ export function AdminDashboard() {
         </div>
 
         {/* Email Setup Banner */}
-        <EmailSetupBanner />
+        {/* Comment out the Resend email setup steps/banner */}
+        {/* <EmailSetupBanner /> */}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">

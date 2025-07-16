@@ -33,6 +33,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   fetchProfile: (userId: string) => Promise<Profile | null>;
+  refreshProfile: (userId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -246,6 +247,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Expose a refreshProfile function to force update the profile in context
+  const refreshProfile = async (userId: string) => {
+    const profile = await fetchProfile(userId);
+    setProfile(profile);
+  };
+
   const signUp = async (
     email: string,
     password: string,
@@ -273,6 +280,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (profileError) throw profileError;
+
+      // Wait for profile to be available (polling)
+      let attempts = 0;
+      let profile = null;
+      while (attempts < 10) {
+        // try for up to ~2 seconds
+        const { data: fetchedProfile } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", data.user.id)
+          .maybeSingle();
+        if (fetchedProfile) {
+          profile = fetchedProfile;
+          break;
+        }
+        await new Promise((res) => setTimeout(res, 200));
+        attempts++;
+      }
+      if (!profile) {
+        throw new Error("Profile creation failed, please try again.");
+      }
+      // Immediately refresh the profile in context
+      await refreshProfile(data.user.id);
     }
   };
 
@@ -307,6 +337,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signOut,
     fetchProfile,
+    refreshProfile, // <-- add this
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
