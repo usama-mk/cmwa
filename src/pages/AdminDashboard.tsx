@@ -5,7 +5,7 @@ import {
   sendProjectUpdateEmail,
   formatStatusForEmail,
 } from "../lib/emailService";
-import { EmailSetupBanner } from "../components/EmailSetupBanner";
+// import { EmailSetupBanner } from "../components/EmailSetupBanner";
 import {
   Plus,
   Users,
