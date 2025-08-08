@@ -182,7 +182,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'onboarding@resend.dev',
+        from: 'consulting@abundanceinnovations.com',
         to: [to],
         subject: subject,
         html: htmlContent,
